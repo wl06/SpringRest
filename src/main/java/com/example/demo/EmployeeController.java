@@ -1,6 +1,11 @@
 package com.example.demo;
 
 import java.util.List;
+import java.util.stream.Collectors;
+
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.*;
+import org.springframework.hateoas.CollectionModel;
+import org.springframework.hateoas.EntityModel;
 
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,8 +27,16 @@ class EmployeeController {
     // Aggregate root
 
     @GetMapping("/employees")
-    List<Employee> all() {
-        return repository.findAll();
+    CollectionModel<EntityModel<Employee>> all() {
+
+        List<EntityModel<Employee>> employees = repository.findAll().stream()
+                .map(employee -> new EntityModel<>(employee,
+                        linkTo(methodOn(EmployeeController.class).one(employee.getId())).withSelfRel(),
+                        linkTo(methodOn(EmployeeController.class).all()).withRel("employees")))
+                .collect(Collectors.toList());
+
+        return new CollectionModel<>(employees,
+                linkTo(methodOn(EmployeeController.class).all()).withSelfRel());
     }
 
     @PostMapping("/employees")
@@ -34,10 +47,14 @@ class EmployeeController {
     // Single item
 
     @GetMapping("/employees/{id}")
-    Employee one(@PathVariable Long id) {
+    EntityModel<Employee> one(@PathVariable Long id) {
 
-        return repository.findById(id)
+        Employee employee = repository.findById(id)
                 .orElseThrow(() -> new EmployeeNotFoundException(id));
+
+        return new EntityModel<>(employee,
+                linkTo(methodOn(EmployeeController.class).one(id)).withSelfRel(),
+                linkTo(methodOn(EmployeeController.class).all()).withRel("employees"));
     }
 
     @PutMapping("/employees/{id}")
